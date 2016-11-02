@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+
+{% load static %}
+
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Rango</title>
+    </head>
+    <body>
+        <h1>Rango says...</h1>
+        Hello world! <strong>{{ boldmessage }}</strong><br />
+        <a href="/rango/about/">About</a><br />
+        <img src="{% static "images/lilbub.jpg" %}" alt="Picture of Bub" />
+    </body>
+</html>
