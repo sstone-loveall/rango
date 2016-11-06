@@ -27,6 +27,8 @@ TEMPLATE_DEBUG = True
 
 ALLOWED_HOSTS = []
 
+LOGIN_URL = '/rango/login/'
+
 # Database
 # https://docs.djangoproject.com/en/1.7/ref/settings/#databases
 

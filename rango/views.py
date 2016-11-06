@@ -1,7 +1,9 @@
-from django.http import HttpResponse
+from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.decorators import login_required
+from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import render
+from rango.forms import CategoryForm, PageForm, UserForm, UserProfileForm
 from rango.models import Category, Page
-from rango.forms import CategoryForm, PageForm
 
 
 def index(request):
@@ -14,27 +16,6 @@ def index(request):
 
 def about(request):
     return HttpResponse("Rango says here is the about page.")
-
-
-def category(request, category_name_slug):
-    context_dict = {}
-
-    try:
-        # try to find a category name from the slug
-        category = Category.objects.get(slug=category_name_slug)
-        context_dict['category_name'] = category.name
-        context_dict['category_name_url'] = category.slug
-
-        # retrieve associated pages
-        pages = Page.objects.filter(category=category)
-
-        # adds our results list to the template context
-        context_dict['pages'] = pages
-        context_dict['category'] = category
-    except Category.DoesNotExist:
-        pass
-
-    return render(request, 'rango/category.html', context_dict)
 
 
 def add_category(request):
@@ -53,9 +34,9 @@ def add_category(request):
     return render(request, 'rango/add_category.html', {'form': form})
 
 
-def add_page(request, category_name_slug):
+def add_page(request, category_name_url):
     try:
-        cat = Category.objects.get(slug=category_name_slug)
+        cat = Category.objects.get(slug=category_name_url)
     except Category.DoesNotExist:
         cat = None
 
@@ -68,7 +49,7 @@ def add_page(request, category_name_slug):
                 page.views = 0
                 page.save()
 
-                return category(request, category_name_slug)
+                return category(request, category_name_url)
         else:
             print form.errors
     else:
@@ -79,4 +60,98 @@ def add_page(request, category_name_slug):
     return render(request, 'rango/add_page.html', context_dict)
 
 
+def category(request, category_name_url):
+    context_dict = {}
 
+    try:
+        # try to find a category name from the slug
+        category = Category.objects.get(slug=category_name_url)
+        context_dict['category_name'] = category.name
+        context_dict['category_name_url'] = category.slug
+
+        # retrieve associated pages
+        pages = Page.objects.filter(category=category)
+
+        # adds our results list to the template context
+        context_dict['pages'] = pages
+        context_dict['category'] = category
+    except Category.DoesNotExist:
+        pass
+
+    return render(request, 'rango/category.html', context_dict)
+
+
+def register(request):
+    # A boolean value for telling the template whether the registration was successful.
+    registered = False
+
+    if request.method == 'POST':
+        user_form = UserForm(data=request.POST)
+        profile_form = UserProfileForm(data=request.POST)
+
+        if user_form.is_valid() and profile_form.is_valid():
+            # save the user form data to the database
+            user = user_form.save()
+
+            user.set_password(user.password)
+            user.save()
+
+            profile = profile_form.save(commit=False)
+            profile.user = user
+
+            if 'picture' in request.FILES:
+                profile.picture = request.FILES['picture']
+
+            # save the profile form data to the database
+            profile.save()
+
+            registered = True
+
+        else:
+            print user_form.errors, profile_form.errors
+
+    else:
+        # not a POST, so render blank forms
+        user_form = UserForm()
+        profile_form = UserProfileForm()
+
+    return render(request,
+                  'rango/register.html',
+                  {'user_form': user_form, 'profile_form': profile_form, 'registered': registered})
+
+
+@login_required
+def restricted(request):
+    return HttpResponse("Since you're logged in, you can see this text!")
+
+
+def user_login(request):
+    if request.method == 'POST':
+        username = request.POST.get('username')
+        password = request.POST.get('password')
+
+        # use Django's machinery to see if the username/password combo is valid
+        user = authenticate(username=username, password=password)
+
+        if user:
+            # if user object exists, the details are correct. Now check if active.
+            if user.is_active:
+                login(request, user)
+                return HttpResponseRedirect('/rango/')
+            else:
+                return HttpResponse("Your Rango account is disabled.")
+        else:
+            # bad login
+            print "Invalid login details {0}, {1}".format(username, password)
+            return HttpResponse("Invalid login details supplied.")
+    else:
+        # request is not a post, so display the form
+        # no context variables to pass, so blank dict used
+        return render(request, 'rango/login.html', {})
+
+
+@login_required
+def user_logout(request):
+    logout(request)
+
+    return HttpResponseRedirect('/rango/')
