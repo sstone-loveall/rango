@@ -1,10 +1,7 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Add a Page</title>
-</head>
-<body>
+{% extends 'rango/shared/base.html' %}
+{% block title %}Rango - Add a Page{% endblock%}
+
+{% block body_block %}
     <h1>Add a Page</h1>
     <br/>
 
@@ -30,5 +27,4 @@
         	</form>
 		{% endif %}
 </div>
-</body>
-</html>
+{% endblcok %}
