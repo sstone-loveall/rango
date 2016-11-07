@@ -7,6 +7,7 @@ from rango.core import session_data
 from rango.forms import CategoryForm, PageForm, UserForm, UserProfileForm
 from rango.models import Category, Page
 from rango.utils import format_date
+from rango.view_model_managers import category_view_model_manager
 
 
 def index(request):
@@ -81,23 +82,8 @@ def add_page(request, category_name_url):
 
 
 def category(request, category_name_url):
-    context_dict = {}
-
-    try:
-        # try to find a category name from the slug
-        category = Category.objects.get(slug=category_name_url)
-        context_dict['category_name'] = category.name
-        context_dict['category_name_url'] = category.slug
-
-        # retrieve associated pages
-        pages = Page.objects.filter(category=category)
-
-        # adds our results list to the template context
-        context_dict['pages'] = pages
-        context_dict['category'] = category
-    except Category.DoesNotExist:
-        pass
-
+    manager = category_view_model_manager.CategoryViewModelManager()
+    context_dict = manager.populate_category_view_context(category_name_url)
     return render(request, 'rango/category.html', context_dict)
 
 
