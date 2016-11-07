@@ -1,7 +1,10 @@
+from datetime import datetime
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import render
+
+from rango.core import session_data
 from rango.forms import CategoryForm, PageForm, UserForm, UserProfileForm
 from rango.models import Category, Page
 
@@ -9,13 +12,48 @@ from rango.models import Category, Page
 def index(request):
     # order by num. of likes in desc order, get top 5 or all if less
     category_list = Category.objects.order_by('-likes')[:5]
-    context_dict = {'categories': category_list}
+    page_list = Page.objects.order_by('-views')[:5]
 
-    return render(request, 'rango/index.html', context_dict)
+    context_dict = {'categories': category_list, 'pages': page_list}
+
+    visits = request.session.get('visits')
+    if not visits:
+        visits = 1
+    reset_last_visit_time = False
+
+    last_visit = request.session.get('last_visit')
+    if last_visit:
+        last_visit_time = datetime.strptime(last_visit[:-7], "%Y-%m-%d %H:%M:%S")
+
+        # if it's been more than a day since the last visit
+        if (datetime.now() - last_visit_time).days > 0:
+            visits += 1
+            reset_last_visit_time = True
+    else:
+        # session value doesn't exist, so flag that it should be set
+        reset_last_visit_time = True
+
+    if reset_last_visit_time:
+        request.session['last_visit'] = str(datetime.now())
+        request.session['visits'] = visits
+
+    context_dict['visits'] = visits
+
+    response = render(request, 'rango/index.html', context_dict)
+
+    return response
 
 
 def about(request):
-    return HttpResponse("Rango says here is the about page.")
+    # If the visits session variable exists, take it and use it.
+    # If it doesn't, we haven't visited the site so set the count to zero.
+    if request.session.get('visits'):
+        count = request.session.get('visits')
+    else:
+        count = 0
+
+    # remember to include the visit data
+    return render(request, 'rango/about.html', {'visits': count})
 
 
 def add_category(request):
@@ -122,7 +160,7 @@ def register(request):
 
 @login_required
 def restricted(request):
-    return HttpResponse("Since you're logged in, you can see this text!")
+    return render(request, 'rango/restricted.html', {})
 
 
 def user_login(request):
