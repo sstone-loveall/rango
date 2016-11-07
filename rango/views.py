@@ -1,4 +1,3 @@
-from datetime import datetime
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, HttpResponseRedirect
@@ -7,37 +6,23 @@ from django.shortcuts import render
 from rango.core import session_data
 from rango.forms import CategoryForm, PageForm, UserForm, UserProfileForm
 from rango.models import Category, Page
+from rango.utils import format_date
 
 
 def index(request):
-    # order by num. of likes in desc order, get top 5 or all if less
+    # order by num. of likes and views, both in desc order, get top 5 or all if less
     category_list = Category.objects.order_by('-likes')[:5]
     page_list = Page.objects.order_by('-views')[:5]
-
     context_dict = {'categories': category_list, 'pages': page_list}
 
-    visits = request.session.get('visits')
-    if not visits:
-        visits = 1
-    reset_last_visit_time = False
+    visit_data = session_data.Visits(request)
+    visit_count = visit_data.get_visits_count()
+    last_visit = visit_data.get_last_visit_date()
 
-    last_visit = request.session.get('last_visit')
-    if last_visit:
-        last_visit_time = datetime.strptime(last_visit[:-7], "%Y-%m-%d %H:%M:%S")
+    context_dict['visits'] = visit_count
+    context_dict['last_visit_on'] = format_date.weekday_month_day_year(last_visit)
 
-        # if it's been more than a day since the last visit
-        if (datetime.now() - last_visit_time).days > 0:
-            visits += 1
-            reset_last_visit_time = True
-    else:
-        # session value doesn't exist, so flag that it should be set
-        reset_last_visit_time = True
-
-    if reset_last_visit_time:
-        request.session['last_visit'] = str(datetime.now())
-        request.session['visits'] = visits
-
-    context_dict['visits'] = visits
+    visit_data.update_visits_session(visit_count, last_visit)
 
     response = render(request, 'rango/index.html', context_dict)
 
@@ -45,15 +30,12 @@ def index(request):
 
 
 def about(request):
-    # If the visits session variable exists, take it and use it.
-    # If it doesn't, we haven't visited the site so set the count to zero.
-    if request.session.get('visits'):
-        count = request.session.get('visits')
-    else:
-        count = 0
+    visit_data = session_data.Visits(request)
+    visit_count = visit_data.get_visits_count()
+    last_visit = format_date.weekday_month_day_year(visit_data.get_last_visit_date)
+    context_dict = {'visits': visit_count, 'last_visit_on': last_visit}
 
-    # remember to include the visit data
-    return render(request, 'rango/about.html', {'visits': count})
+    return render(request, 'rango/about.html', context_dict)
 
 
 def add_category(request):
